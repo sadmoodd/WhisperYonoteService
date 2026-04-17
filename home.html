@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏠 Панель управления сервисами</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-top: 15px;
+        }
+
+        /* Grid */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        /* Cards */
+        .service-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .service-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .service-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .service-description {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .service-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            font-size: 0.8rem;
+        }
+
+        .service-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-checking {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .service-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            width: 100%;
+            text-align: center;
+        }
+
+        .service-link:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .footer a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Loading animation */
+        .loading-spinner-small {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .service-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Панель управления сервисами</h1>
+            <p>Быстрый доступ ко всем микросервисам и API</p>
+            <div class="badge">
+                🔒 Защищено SSL | 🌐 Локальная сеть
+            </div>
+        </div>
+
+        <div class="services-grid" id="servicesGrid">
+            <!-- Карточки будут загружены динамически -->
+        </div>
+
+        <div class="footer">
+            <p>© 2026 AI Platform | 🎤 Голосовое управление проектами</p>
+            <p style="font-size: 0.8rem; margin-top: 10px;">
+                🔐 Все сервисы работают через защищенное соединение | 
+                📡 Сервер: 192.168.237.71:5958
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Конфигурация сервисов
+        const services = [
+            {
+                id: 'yonote',
+                name: '🎙️ Whisper AI + Yonote',
+                description: 'Превращаем речь в структурированные проекты и задачи. Загрузите аудио или видео, получите готовый проект в Yonote.',
+                icon: '🎙️',
+                url: '/yonote/',
+                apiUrl: '/yonote/api/health',
+                color: '#667eea',
+                features: ['Аудио', 'Видео', 'Авто-задачи', 'Yonote интеграция']
+            },
+            {
+                id: 'whisper-api',
+                name: '🎤 Whisper API',
+                description: 'API для транскрипции аудио. Поддерживает MP3, WAV, M4A, OGG. Возвращает текст и статистику.',
+                icon: '🎤',
+                url: '/whisper/api/health',
+                apiUrl: '/whisper/api/health',
+                color: '#48bb78',
+                features: ['Транскрипция', 'Суммаризация', 'Чанкинг']
+            },
+            {
+                id: 'parser-api',
+                name: '📊 Parser API',
+                description: 'API для парсинга данных. Поддерживает PDF. Возвращает Excel таблицу.',
+                icon: '📊',
+                url: '/parser/api/health',
+                apiUrl: '/parser/api/health',
+                color: '#f6ad55',
+                features: ['Парсинг', 'PDF', 'Excel', 'Данные'],
+                
+            },
+            {
+                id: 'parser-web',
+                name: '🌐 Parser Web',
+                description: 'Веб-интерфейс для управления парсингом. ',
+                icon: '🌐',
+                url: '/parser/',
+                apiUrl: '/parser/api/health',
+                color: '#ed8936',
+                features: ['Веб-интерфейс', 'Управление', 'Мониторинг'],
+
+            },
+            {
+                id: 'whisper-web',
+                name: '📝 Whisper Web',
+                description: 'Веб-интерфейс для транскрипции аудио. Загружайте файлы и получайте текст.',
+                icon: '📝',
+                url: '/whisper/',
+                apiUrl: '/whisper/api/health',
+                color: '#9f7aea',
+                features: ['Загрузка файлов', 'Транскрипция', 'История']
+            },
+            {
+                id: 'ollama',
+                name: '🤖 Ollama LLM',
+                description: 'Локальная LLM для генерации текста, анализа и суммаризации. Требует авторизацию.',
+                icon: '🤖',
+                url: '/',
+                apiUrl: '/api/tags',
+                color: '#e53e3e',
+                features: ['Gemma3', 'LLaMA', 'Chat'],
+                auth: true,
+                external: true
+            }
+        ];
+
+        // Функция проверки статуса сервиса
+        async function checkServiceStatus(service) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch(service.apiUrl, {
+                    method: 'GET',
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    return { status: 'active', message: 'Работает' };
+                } else {
+                    return { status: 'error', message: `Ошибка ${response.status}` };
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    return { status: 'error', message: 'Таймаут' };
+                }
+                return { status: 'error', message: 'Недоступен' };
+            }
+        }
+
+        // Обновление статуса для одной карточки
+        async function updateServiceStatus(serviceId, statusElement) {
+            const service = services.find(s => s.id === serviceId);
+            if (!service) return;
+            
+            const status = await checkServiceStatus(service);
+            
+            if (status.status === 'active') {
+                statusElement.innerHTML = '🟢 Активен';
+                statusElement.className = 'service-status status-active';
+            } else {
+                statusElement.innerHTML = '🔴 ' + status.message;
+                statusElement.className = 'service-status status-error';
+            }
+        }
+
+        // Создание карточки сервиса
+        function createServiceCard(service) {
+            const card = document.createElement('div');
+            card.className = 'service-card';
+            card.style.borderTop = `4px solid ${service.color}`;
+            
+            // Создаем элементы
+            card.innerHTML = `
+                <div class="service-icon">${service.icon}</div>
+                <div class="service-title">${service.name}</div>
+                <div class="service-description">${service.description}</div>
+                <div class="service-meta">
+                    <span class="service-status status-checking" id="status-${service.id}">
+                        <span class="loading-spinner-small"></span> Проверка...
+                    </span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    ${service.features.map(f => `<span style="display: inline-block; background: #f0f0f0; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; margin: 2px;">${f}</span>`).join('')}
+                </div>
+                <a href="${service.url}" class="service-link" target="${service.external ? '_blank' : '_self'}">
+                    ${service.auth ? '🔐 Перейти (требуется авторизация)' : '🚀 Открыть сервис'}
+                </a>
+            `;
+            
+            return card;
+        }
+
+        // Загрузка всех сервисов
+        async function loadServices() {
+            const grid = document.getElementById('servicesGrid');
+            grid.innerHTML = '';
+            
+            // Создаем карточки
+            for (const service of services) {
+                const card = createServiceCard(service);
+                grid.appendChild(card);
+            }
+            
+            // Проверяем статусы
+            for (const service of services) {
+                const statusElement = document.getElementById(`status-${service.id}`);
+                if (statusElement) {
+                    updateServiceStatus(service.id, statusElement);
+                }
+            }
+        }
+
+        // Обновление статусов каждые 30 секунд
+        function startStatusPolling() {
+            setInterval(() => {
+                for (const service of services) {
+                    const statusElement = document.getElementById(`status-${service.id}`);
+                    if (statusElement) {
+                        updateServiceStatus(service.id, statusElement);
+                    }
+                }
+            }, 30000);
+        }
+
+        // Добавляем анимацию появления
+        function addAnimations() {
+            const cards = document.querySelectorAll('.service-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        }
+
+        // Инициализация
+        loadServices().then(() => {
+            startStatusPolling();
+            setTimeout(addAnimations, 100);
+        });
+        
+        // Отслеживаем изменения видимости страницы
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                // Обновляем статусы при возвращении на страницу
+                for (const service of services) {
+                    const statusElement = document.getElementById(`status-${service.id}`);
+                    if (statusElement) {
+                        updateServiceStatus(service.id, statusElement);
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
