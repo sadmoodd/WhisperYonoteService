@@ -868,7 +868,7 @@ async def send_to_yonote_endpoint(
 
 
 @app.get("/yonote/api/collections")
-async def get_collections():
+async def get_collections(request: Request):
     """Получает список доступных коллекций в Yonote"""
     
     # Получаем токен из заголовков
