@@ -504,6 +504,51 @@
     </div>
 
     <script>
+        const TokenCrypto = {
+            // Секретный ключ для шифрования (можно сгенерировать один раз и использовать)
+            // TODO REMOVE FOR GIT EXPORT
+            SECRET_KEY: 'WhisperYonoteSecretKey2026!@#$',
+
+            
+            // Простое XOR шифрование с ключом
+            encrypt(text) {
+                if (!text) return '';
+                
+                const key = this.SECRET_KEY;
+                let result = '';
+                
+                for (let i = 0; i < text.length; i++) {
+                    const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+                    result += String.fromCharCode(charCode);
+                }
+                
+                // Конвертируем в base64 для безопасной передачи
+                return btoa(result);
+            },
+            
+            decrypt(encrypted) {
+                if (!encrypted) return '';
+                
+                try {
+                    // Декодируем из base64
+                    const decoded = atob(encrypted);
+                    const key = this.SECRET_KEY;
+                    let result = '';
+                    
+                    for (let i = 0; i < decoded.length; i++) {
+                        const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+                        result += String.fromCharCode(charCode);
+                    }
+                    
+                    return result;
+                } catch (e) {
+                    console.error('Decryption failed:', e);
+                    return '';
+                }
+            }
+        };
+
+
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
@@ -542,7 +587,7 @@
         function loadSettings() {
             const savedToken = localStorage.getItem('yonote_token');
             const savedCollectionId = localStorage.getItem('yonote_collection_id');
-            if (savedToken) yonoteTokenInput.value = savedToken;
+            if (savedToken) yonoteTokenInput.value = TokenCrypto.decrypt(savedToken);
             if (savedCollectionId) collectionIdInput.value = savedCollectionId;
         }
 
@@ -550,8 +595,16 @@
         function saveSettings() {
             const token = yonoteTokenInput.value.trim();
             const collectionId = collectionIdInput.value.trim();
-            if (token) localStorage.setItem('yonote_token', token);
-            if (collectionId) localStorage.setItem('yonote_collection_id', collectionId);
+
+            if (token) {
+                const encryptedToken = TokenCrypto.encrypt(token);
+                localStorage.setItem('yonote_token', encryptedToken);
+            }
+            
+            if (collectionId) {
+                localStorage.setItem('yonote_collection_id', collectionId);
+            }
+
             updateStatus('✅ Настройки сохранены', 'success');
         }
 
@@ -567,7 +620,17 @@
 
         // Получение токена (из input или localStorage)
         function getYonoteToken() {
-            return yonoteTokenInput.value.trim() || localStorage.getItem('yonote_token');
+            // Сначала пробуем получить из input
+            const inputToken = yonoteTokenInput.value.trim();
+            if (inputToken) return inputToken;
+            
+            // Если нет, пробуем из localStorage (он там уже зашифрован)
+            const encryptedToken = localStorage.getItem('yonote_token');
+            if (encryptedToken) {
+                return TokenCrypto.decrypt(encryptedToken);
+            }
+            
+            return '';
         }
 
         // Получение ID коллекции
@@ -588,9 +651,11 @@
             collectionsPanel.style.display = 'block';
 
             try {
+                const encryptedToken = TokenCrypto.encrypt(token);
+
                 const response = await fetch(COLLECTIONS_URL, {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${encryptedToken}`
                     }
                 });
                 
@@ -788,11 +853,13 @@
             sendToYonoteBtn.disabled = true;
             
             try {
+                const encryptedToken = TokenCrypto.encrypt(token);
+
                 const response = await fetch(SEND_TO_YONOTE_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${encryptedToken}`
                     },
                     body: JSON.stringify({ 
                         project_data: projectData,
@@ -828,6 +895,12 @@
 
             try {
                 formData.append('collection_id', getCollectionId());
+
+                const token = getYonoteToken();
+
+                if (token) {
+                    formData.append('yonote_token', TokenCrypto.encrypt(token));
+                }
 
                 const response = await fetch(API_URL, { method: 'POST', body: formData });
                 const result = await response.json();

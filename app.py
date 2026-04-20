@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Header
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Header, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 import whisper
@@ -27,6 +27,69 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = FastAPI(title="Whisper AI API", version="2.0")
+
+import base64
+class TokenCrypto:
+    """Класс для шифрования/расшифровки токенов"""
+    @staticmethod
+    def decrypt(encrypted_text: str) -> Optional[str]:
+        if not encrypted_text:
+            return None
+        try:
+            decoded = base64.b64decode(encrypted_text).decode('latin1')
+            key = os.getenv("SECRET_KEY")
+            result = ''
+            for i in range(len(decoded)):
+                char_code = ord(decoded[i]) ^ ord(key[i % len(key)])
+                result += chr(char_code)
+            return result   
+        except Exception as e:
+            logger.error(f"Token decryption failed: {e}")
+            return None
+    @staticmethod
+    def encrypt(text: str) -> Optional[str]:
+        if not text:
+            return None  
+        try:
+            key = os.getenv("SECRET_KEY")
+            result = ''
+            for i in range(len(text)):
+                char_code = ord(text[i]) ^ ord(key[i % len(key)])
+                result += chr(char_code)
+            return base64.b64encode(result.encode('latin1')).decode()
+        except Exception as e:
+            logger.error(f"Token encryption failed: {e}")
+            return None
+
+def get_token_from_request(request: Request, form_data: Optional[Dict] = None) -> Optional[str]:
+    """
+    Извлекает токен из разных частей запроса
+    """
+    # Проверяем заголовок X-Encrypted-Token
+    encrypted_token = request.headers.get('yonote_token')
+    if encrypted_token:
+        decrypted = TokenCrypto.decrypt(encrypted_token)
+        if decrypted:
+            return decrypted
+    
+    # Проверяем form data
+    if form_data:
+        encrypted_token = form_data.get('token')
+        if encrypted_token:
+            decrypted = TokenCrypto.decrypt(encrypted_token)
+            if decrypted:
+                return decrypted
+    
+    # Проверяем Authorization заголовок (для обратной совместимости)
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.replace('Bearer ', '')
+        # Пробуем расшифровать
+        decrypted = TokenCrypto.decrypt(token)
+        return decrypted if decrypted else token
+    
+    return None
+
 
 # Модели данных
 class Task(BaseModel):
@@ -546,10 +609,17 @@ def extract_changes_from_voice(transcription: str, current_project: dict) -> dic
         return current_project
 
 
+
+
+
+
+
+
 # ========== ОСНОВНОЙ ЭНДПОИНТ С УМНОЙ ЛОГИКОЙ (ПОДДЕРЖКА ВИДЕО) ==========
 
 @app.post("/yonote/api/process-project")
 async def process_project(
+    request: Request,
     file: UploadFile = File(...),
     send_to_yonote: bool = False,
     collection_id: Optional[str] = None,
@@ -560,6 +630,22 @@ async def process_project(
     Умный эндпоинт: определяет создавать новый проект или обновлять существующий
     Поддерживает аудио (mp3, wav, m4a, ogg) и видео (mp4, avi, mov, mkv)
     """
+    token = get_token_from_request(request)
+    
+    # Если токен не найден в заголовках, пробуем из формы
+    if not token:
+        token = TokenCrypto.decrypt(token)
+    
+    # Создаем клиент Yonote
+    if token:
+        logger.info("Using user-provided token")
+        yonote_client = YonoteClient(api_key=token)
+    else:
+        logger.info("Using default token from .env")
+        yonote_client = get_yonote_client()
+
+
+
     upload_file = file
     if not upload_file:
         raise HTTPException(status_code=400, detail="No file uploaded")
@@ -731,6 +817,7 @@ async def process_project(
     }
 
 
+
 # ========== ОСТАЛЬНЫЕ ЭНДПОИНТЫ ==========
 
 @app.post("/yonote/api/send-to-yonote")
@@ -743,13 +830,26 @@ async def send_to_yonote_endpoint(
     data = await request.json()
     project_data = data.get("project_data")
     collection_id = data.get("collection_id")
+
+    token = get_token_from_request(request)
+    
+    # Если токен не найден в заголовках, пробуем из формы
+    if not token and yonote_token:
+        token = TokenCrypto.decrypt(yonote_token)
+    
+    # Создаем клиент Yonote
+    if token:
+        logger.info("Using user-provided token")
+        yonote_client = YonoteClient(api_key=token)
+    else:
+        logger.info("Using default token from .env")
+        yonote_client = get_yonote_client()
     
     if not project_data:
         raise HTTPException(status_code=400, detail="No project_data provided")
     
     markdown_content = format_project_to_markdown(project_data)
     title = project_data.get("project", {}).get("name", "Новый проект")
-    
     result = yonote_client.create_document(
         title=title,
         text=markdown_content,
@@ -770,13 +870,22 @@ async def send_to_yonote_endpoint(
 @app.get("/yonote/api/collections")
 async def get_collections():
     """Получает список доступных коллекций в Yonote"""
-    result = yonote_client.get_collections()
+    
+    # Получаем токен из заголовков
+    token = get_token_from_request(request)
+    
+    # Создаем клиент
+    if token:
+        user_yonote = YonoteClient(token=token)
+    else:
+        user_yonote = get_yonote_client()
+        
+    result = user_yonote.get_collections()
     
     if result.get("error"):
         raise HTTPException(status_code=500, detail=f"Yonote API error: {result['error']}")
     
     return result
-
 
 @app.get("/yonote/api/test-connection")
 async def test_yonote_connection():
